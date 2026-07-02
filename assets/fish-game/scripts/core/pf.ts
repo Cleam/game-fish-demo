@@ -12,7 +12,7 @@
  * - 透明度用 UIOpacity;矩形/圆/圆弧/线条用 Graphics 绘制并做 Y 翻转。
  * - 自实现的补间与定时器由 PfScene.update(dtMs) 逐帧驱动,便于重试时统一清理。
  */
-import { Color, Graphics, Label, LabelOutline, Node, Sprite, SpriteFrame, UIOpacity, UITransform, Vec3, v3, Layers } from 'cc'
+import { Color, Graphics, Label, Node, Sprite, SpriteFrame, UIOpacity, UITransform, Vec3, v3, Layers } from 'cc'
 
 export const DESIGN_W = 720
 export const DESIGN_H = 1280
@@ -322,7 +322,6 @@ export interface TextStyle {
 
 export class PfText extends PfObj {
   private label: Label
-  private outline?: LabelOutline
   constructor(scene: PfScene, str: string, style: TextStyle) {
     const node = new Node('PfText')
     node.layer = Layers.Enum.UI_2D
@@ -335,10 +334,11 @@ export class PfText extends PfObj {
     this.label.isBold = style.fontStyle === 'bold'
     this.label.overflow = Label.Overflow.NONE
     if (style.color) this.label.color = Color.WHITE.clone().fromHEX(style.color)
+    // 用 Label 内置描边(LabelOutline 组件在 3.8 已弃用)
     if (style.strokeThickness && style.stroke) {
-      this.outline = node.addComponent(LabelOutline)
-      this.outline.color = Color.WHITE.clone().fromHEX(style.stroke)
-      this.outline.width = style.strokeThickness
+      this.label.enableOutline = true
+      this.label.outlineColor = Color.WHITE.clone().fromHEX(style.stroke)
+      this.label.outlineWidth = style.strokeThickness
     }
     this.setOrigin(0.5, 0.5)
   }
