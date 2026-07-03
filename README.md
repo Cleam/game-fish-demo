@@ -193,13 +193,48 @@ export class FishGameLauncher extends Component {
   - `Mask.Type.RECT` → `Mask.Type.GRAPHICS_STENCIL`(3.8.8 无 `RECT`);
   - 文本描边用 `Label.outlineColor/outlineWidth`(`LabelOutline` 组件已弃用);
   - 未手写 `.prefab`/`.scene`(二进制序列化易出错),改由编辑器生成。
-- **未打包**:原始 `assets/images/_tmp`(176MB,未使用)未纳入;`ui/as2.png`(约 19MB)
-  体积偏大,后续可按需压缩(本次保持原样,不改动业务)。
+- **未打包**:原始 `assets/images/_tmp`(176MB,未使用)未纳入。
 
 ---
 
-## 七、验证
+## 七、资源优化与图集(降体积 / 提性能)
+
+已对资源做过一轮瘦身,`textures/` 由约 **57MB → 31MB**;帧图去留白后 GPU 纹理内存大幅下降。
+
+已完成(可用 `bash tools/optimize-assets.sh` 复现,之后必须 `node tools/gen-manifest.mjs` 重算):
+
+| 项目 | 处理 | 效果 |
+| --- | --- | --- |
+| 帧图透明留白 | `mogrify -trim` 裁到可见包围盒 | 单帧最大 1642×1080 → 238×135,纹理内存约 55× ↓ |
+| `ui/as2.png` | `-strip` 去冗余元数据重编码 | **19.7MB → 52KB**(原文件夹带约 15MB 冗余数据) |
+| `ui/bg.png` | 下采样到 1664×1024 | 5.3MB → 1.46MB |
+| `ui/modal_win.png` | 重压缩 | 2.0MB → 1.5MB |
+| `ui/as1.png`、`ui/boss.png` | 未被代码引用,删除 | -1MB |
+
+> 裁剪不改变视觉:缩放/锚点/嘴部坐标均由「可见包围盒」推导,裁剪后重算 manifest 得到
+> `bounds=全图、centerAnchor=0.5、mouthAnchor=0.88/0.48`,与裁剪前的物理位置等价。
+
+### 用 Cocos Auto Atlas 合批 + 构建期压缩(编辑器内,几步点击)
+
+帧仍按松散 SpriteFrame 加载,加图集后**加载器零改动**(Cocos 按路径加载会自动重定向到图集)。
+建议给每个帧目录建一个 Auto Atlas:
+
+1. 资源管理器右键目标目录(如 `textures/hero/lv120`)→ 新建 → **Auto Atlas**,得到一个 `.pac`。
+2. 选中该 `.pac`,在 Inspector 配置:
+   - **Max Width / Max Height**:2048(帧已裁小,通常一两张图页即可容纳);
+   - **Padding**:2;勾选 **Trim**(去边)、**Force Square** 视需要;
+   - **纹理压缩格式**:按目标平台选(Web 可用 PNG;要更小可选压缩纹理)。
+3. 对 `hero/lv0..lv120`、`hero/end`、`hero/move`、`npc/01..05`、`boss` 各建一个;
+   或直接对 `textures/hero`、`textures/npc` 上层目录建一个整包图集(注意 Max Size 内是否放得下)。
+4. 构建时图集会自动打包并按所选格式压缩,进一步减小**构建产物**体积、减少 draw call 与加载请求数。
+
+> 想让构建产物更小,还可在 **构建面板 → 纹理压缩** 里为该平台配置压缩格式,对图集统一生效。
+
+---
+
+## 八、验证
 
 - 已通过 TypeScript 类型检查(基于 cc 类型桩,`strict:false`,0 error)。
-- `manifest.json` 生成校验:heroAtk=114 / heroEnd=30 / heroMove=20 / npc=300 / boss=16 / ui=5,trim=460。
+- `manifest.json` 生成校验:heroAtk=114 / heroEnd=30 / heroMove=20 / npc=300 / boss=16 / ui=3,trim=460。
+- 资源瘦身后视觉一致性:抽样帧 `bounds=全图 / centerAnchor=0.5 / mouthAnchor=0.88·0.48`,与裁剪前等价。
 - 建议在编辑器中按第三节自测:`win` 与 `lose` 全流程、`lose` 连续「重新挑战」多次应无重复角色 / 重复计时 / 特效残留。
