@@ -42,11 +42,15 @@ tools/                            # 资源处理脚本(见「资源工具」)
 
 1. 用 Cocos Creator 3.8.8 打开本工程,等待资源导入完成。
 2. 确认 `assets/fish-game` 已被识别为 Bundle:选中该文件夹,Inspector 中「配置为 Bundle」已勾选、名称为 `fish-game`。
-3. 新建场景自测:
+3. 新建场景自测(用主包启动器 `DemoLauncher`,预览与构建都可用):
    - `assets` 右键 → 新建 → Scene,双击打开(自带 Canvas + Camera);
-   - 层级面板右键 `Canvas` → 创建空节点,重命名 `FishGame`;
-   - 选中它 → Add Component → `FishGameEntry`,设置 `Mode` 为 `win` 或 `lose`;
-   - 点顶部 ▶ 预览。
+   - 层级面板右键 `Canvas` → 创建空节点;
+   - 选中它 → Add Component → `DemoLauncher`(位于 `assets/DemoLauncher.ts`),设置 `Mode` 为 `win` 或 `lose`;
+   - 点顶部 ▶ 预览。`DemoLauncher` 会在运行时加载 `fish-game` bundle 并实例化 `FishGame` 预制体。
+
+> ⚠️ 不要把 `FishGameEntry` 组件**直接**挂到场景节点上。它属于 `fish-game` bundle,
+> 构建后主包加载场景时 bundle 脚本尚未注册,会报 `5302 / 3817`(找不到组件)。
+> 自测请统一用 `DemoLauncher`(先 `loadBundle` 再实例化 prefab),与第三方接入方式一致。
 
 ## 构建并发布为远程 Bundle
 
