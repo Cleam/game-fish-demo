@@ -1,0 +1,10 @@
+{
+  "name": "bihaizz-tools",
+  "private": true,
+  "type": "module",
+  "description": "fish-game bundle 资源处理脚本(manifest 生成 / 图片压缩)",
+  "dependencies": {
+    "pngquant": "^4.2.0",
+    "upng-js": "^2.1.0"
+  }
+}

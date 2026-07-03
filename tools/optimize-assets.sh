@@ -12,16 +12,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEX="$ROOT/assets/fish-game/textures"
 
+# ImageMagick 7 用 `magick`,6 用 `convert`/`mogrify`;优先 magick 以消除弃用告警
+if command -v magick >/dev/null 2>&1; then
+  CONVERT=(magick); MOGRIFY=(magick mogrify)
+else
+  CONVERT=(convert); MOGRIFY=(mogrify)
+fi
+
 echo "[1/3] 裁剪帧透明留白..."
 for d in hero/lv0 hero/lv30 hero/lv60 hero/lv90 hero/lv120 hero/end hero/move boss \
          npc/01 npc/02 npc/03 npc/04 npc/05; do
-  [ -d "$TEX/$d" ] && mogrify -trim +repage -strip -define png:compression-level=9 "$TEX/$d"/*.png
+  [ -d "$TEX/$d" ] && "${MOGRIFY[@]}" -trim +repage -strip -define png:compression-level=9 "$TEX/$d"/*.png
 done
 
 echo "[2/3] 压缩 UI 大图..."
-convert "$TEX/ui/as2.png"       -strip -define png:compression-level=9 "$TEX/ui/as2.png"
-convert "$TEX/ui/bg.png"        -resize 1664x1024 -strip -define png:compression-level=9 "$TEX/ui/bg.png"
-convert "$TEX/ui/modal_win.png" -strip -define png:compression-level=9 "$TEX/ui/modal_win.png"
+"${CONVERT[@]}" "$TEX/ui/as2.png"       -strip -define png:compression-level=9 "$TEX/ui/as2.png"
+"${CONVERT[@]}" "$TEX/ui/bg.png"        -resize 1664x1024 -strip -define png:compression-level=9 "$TEX/ui/bg.png"
+"${CONVERT[@]}" "$TEX/ui/modal_win.png" -strip -define png:compression-level=9 "$TEX/ui/modal_win.png"
 
 echo "[3/3] 移除未使用 UI 图(as1 / boss)..."
 rm -f "$TEX/ui/as1.png" "$TEX/ui/as1.png.meta" "$TEX/ui/boss.png" "$TEX/ui/boss.png.meta"
