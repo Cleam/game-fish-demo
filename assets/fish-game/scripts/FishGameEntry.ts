@@ -199,12 +199,49 @@ export class FishGameEntry extends Component {
     return seg.replace(/\.png$/i, '')
   }
 
-  /** 逐帧加载 SpriteFrame(路径 = textures/<key>/spriteFrame),按 basename 建映射 */
+  /**
+   * 加载全部帧 SpriteFrame,按 basename 建映射。
+   * 优先用一次 loadDir(请求少、加载快);若目录批量结果不足(极少数环境 uuid 映射失败),
+   * 回退到逐帧加载,保证健壮。
+   */
   private loadFrames(bundle: AssetManager.Bundle, keys: string[], done: (frames: Map<string, SpriteFrame>) => void): void {
+    if (keys.length === 0) { done(new Map()); return }
+    this.loadFramesViaDir(bundle, (map) => {
+      if (map && map.size >= keys.length) { done(map); return }
+      console.warn(`[FishGame] loadDir 覆盖不足(${map ? map.size : 0}/${keys.length}),回退逐帧加载`)
+      this.loadFramesIndividually(bundle, keys, done)
+    })
+  }
+
+  /** 一次性 loadDir('textures'),用 getDirWithPath 的 uuid→路径 建 basename 映射 */
+  private loadFramesViaDir(bundle: AssetManager.Bundle, done: (frames: Map<string, SpriteFrame> | null) => void): void {
+    let infos: Array<{ uuid: string; path: string }> = []
+    try { infos = bundle.getDirWithPath('textures', SpriteFrame) } catch { done(null); return }
+    if (!infos || infos.length === 0) { done(null); return }
+    const uuidToBase = new Map<string, string>()
+    for (const info of infos) uuidToBase.set(info.uuid, this.frameBasename(info.path))
+
+    bundle.loadDir('textures', SpriteFrame,
+      (finished: number, total: number) => {
+        if (this.loadingLabel && total > 0) this.loadingLabel.string = `加载中 ${Math.floor((finished / total) * 100)}%`
+      },
+      (err: Error | null, frames: SpriteFrame[]) => {
+        if (err || !frames) { done(null); return }
+        const map = new Map<string, SpriteFrame>()
+        for (const sf of frames) {
+          const base = uuidToBase.get((sf as unknown as { _uuid: string })._uuid)
+          if (base) map.set(base, sf)
+        }
+        done(map)
+      },
+    )
+  }
+
+  /** 兜底:逐帧加载(路径 = textures/<key>/spriteFrame) */
+  private loadFramesIndividually(bundle: AssetManager.Bundle, keys: string[], done: (frames: Map<string, SpriteFrame>) => void): void {
     const map = new Map<string, SpriteFrame>()
     const total = keys.length
     let finished = 0
-    if (total === 0) { done(map); return }
     for (const key of keys) {
       bundle.load(`textures/${key}/spriteFrame`, SpriteFrame, (err: Error | null, sf: SpriteFrame) => {
         if (!err && sf) map.set(this.basename(key), sf)
@@ -214,6 +251,14 @@ export class FishGameEntry extends Component {
         if (finished === total) done(map)
       })
     }
+  }
+
+  /** 从 getDirWithPath 的 path 取帧 basename(兼容末尾带 /spriteFrame 的情况) */
+  private frameBasename(path: string): string {
+    const segs = path.split('/')
+    let last = segs.pop() ?? path
+    if (last === 'spriteFrame' || last === 'texture') last = segs.pop() ?? last
+    return last.replace(/\.png$/i, '')
   }
 
   private startGame(): void {
